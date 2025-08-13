@@ -13,11 +13,42 @@ function setupEvents() {
   });
 }
 function main() {
+  // Prefer data from chrome.storage.local (service worker), fallback to localStorage
+  if (chrome && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['HN.NumLinks'], function(items){
+      var num = items && items['HN.NumLinks'];
+      if (num != null && num > 0) {
+        var keys = [];
+        for (var i=0; i<num; i++) keys.push('HN.Link' + i);
+        chrome.storage.local.get(keys, function(linkItems){
+          var links = [];
+          for (var j=0; j<num; j++) {
+            var raw = linkItems['HN.Link' + j];
+            if (raw) {
+              try { links.push(JSON.parse(raw)); } catch(e) {}
+            }
+          }
+          if (links.length > 0) {
+            buildPopup(links);
+            return;
+          }
+          // fall back if parsing failed
+          fallbackBuild();
+        });
+      } else {
+        fallbackBuild();
+      }
+    });
+  } else {
+    fallbackBuild();
+  }
+}
+
+function fallbackBuild() {
   if (localStorage['HN.NumLinks'] == null) {
     buildPopupAfterResponse = true;
     UpdateFeed();
-  }
-  else {
+  } else {
     buildPopup(RetrieveLinksFromLocalStorage());
   }
 }
@@ -82,14 +113,14 @@ function refreshLinks() {
   updateLastRefreshTime();
 }
 
-//Submit the current tab
-function submitCurrentTab() {
-  console.log('submitCurrentTab!');
-  chrome.windows.getCurrent(function(win){
-    chrome.tabs.getSelected(win.id, function(tab){
-      var submit_url = "https://news.ycombinator.com/submitlink?u=" + encodeURIComponent(tab.url) + "&t=" + encodeURIComponent(tab.title);
-      openUrl(submit_url, true);
-    });
+// Submit the current tab (MV3)
+function submitCurrentTab(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs){
+    var tab = tabs && tabs[0];
+    if (!tab) return;
+    var submit_url = "https://news.ycombinator.com/submitlink?u=" + encodeURIComponent(tab.url) + "&t=" + encodeURIComponent(tab.title);
+    openUrl(submit_url, true);
   });
 }
 

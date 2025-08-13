@@ -135,6 +135,19 @@ function SaveLinksToLocalStorage(links) {
   for (var i=0; i<links.length; i++) {
     localStorage["HN.Link" + i] = JSON.stringify(links[i]);
   }
+  // Mirror to chrome.storage.local so background service worker and popup can share state
+  try {
+    var items = { 'HN.NumLinks': links.length };
+    for (var j=0; j<links.length; j++) {
+      items['HN.Link' + j] = JSON.stringify(links[j]);
+    }
+    items['HN.LastRefresh'] = (new Date()).getTime();
+    if (chrome && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set(items);
+    }
+  } catch (e) {
+    // ignore if storage not available in this context
+  }
 }
 
 function RetrieveLinksFromLocalStorage() {
