@@ -165,13 +165,27 @@ function RetrieveLinksFromLocalStorage() {
 }
 
 function openOptions() {
-  var optionsUrl = chrome.extension.getURL('options.html');
+  var optionsUrl = chrome.runtime.getURL('options.html');
   chrome.tabs.create({url: optionsUrl});
 }
 
 function openLink(e) {
   e.preventDefault();
-  openUrl(this.href, (localStorage['HN.BackgroundTabs'] == 'false'));
+  var href = this.href;
+  if (chrome && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['HN.BackgroundTabs'], function(items){
+      var bg = items && items['HN.BackgroundTabs'];
+      // default to localStorage if not set in storage
+      if (bg == null) {
+        openUrl(href, (localStorage['HN.BackgroundTabs'] == 'false'));
+      } else {
+        var take_focus = (String(bg) == 'false');
+        openUrl(href, take_focus);
+      }
+    });
+  } else {
+    openUrl(href, (localStorage['HN.BackgroundTabs'] == 'false'));
+  }
 }
 
 function openLinkFront(e) {
@@ -201,7 +215,7 @@ function openUrl(url, take_focus) {
   if (url.indexOf("http:") != 0 && url.indexOf("https:") != 0) {
     return;
   }
-  chrome.tabs.create({url: url, selected: take_focus});
+  chrome.tabs.create({ url: url, active: !!take_focus });
 }
   
 function hideElement(id) {
